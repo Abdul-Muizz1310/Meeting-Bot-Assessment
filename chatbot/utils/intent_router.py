@@ -2,7 +2,7 @@ from langchain.prompts import PromptTemplate
 from langchain_community.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0,openai_api_key="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")
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0,openai_api_key="-proj-zpClYfXcNMISkwndC5VCpVouycig2p28GUrms48exJLQ8QY12LhonSt7bgiOJ9ldMcfRk6ORk3T3BlbkFJlvEpD6nLAiUDYmaqv4giCTA2I4RL_ioASuGI4qu_XF-mYJ7W6-0bYqQyf0POdLYkjcFcjCmqIA")
 
 INTENT_PROMPT = PromptTemplate.from_template("""
 You are an intent classifier for a meeting assistant. Classify the user's message into one of the following intents:
