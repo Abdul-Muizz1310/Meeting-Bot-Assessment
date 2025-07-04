@@ -37,17 +37,7 @@ This chatbot system offers:
 
 ---
 
-## 🩺 The Problem & Solution Overview
-
-**Problem:**  
-Conventional chatbots often fail to:
-- Understand a user's *intent* precisely.
-- Maintain consistent conversation memory across sessions.
-- Offer observability and debugging for complex LLM pipelines.
-- Support dynamic workflows based on varied user tasks.
-
-**Solution:**  
-This project builds a **production-grade chatbot engine** that solves these issues by:
+## 🩺 The Solution Overview
 
 ✅ Classifying user intent with a dedicated LLM prompt.  
 ✅ Routing messages to different LangChain chains for specialized tasks.  
@@ -105,6 +95,31 @@ The system is structured around four main modules:
 
 ---
 
+### 🧭 Design Choices & Rationale
+
+#### **Why We Didn't Use FAISS, Chroma, or a Vector Store**
+
+This project deliberately avoids adding a vector database (like FAISS, Chroma, or AstraDB).  
+
+✅ **Reasoning:**
+- The current scale of the chatbot **doesn't involve millions of documents** or large-scale retrieval needs.
+- There's no requirement for **long-term persistence** of embeddings between sessions.
+- Adding a full vector store would be **overengineering**, consuming more resources (RAM, disk, compute) without delivering meaningful value in this use-case.
+- Instead, the system uses **LangChain’s native ConversationBufferMemory**, which is:
+  - Ephemeral
+  - Session-scoped
+  - Lightweight
+  - Cheap to run
+
+✅ **Benefits of This Choice:**
+- Minimal resource consumption.
+- Lower operational overhead.
+- Simpler deployment (no extra DB setup or hosting).
+- Easier maintenance for small-scale or prototype deployments.
+- Leaves room for **easy upgrades** later if requirements change.
+
+---
+
 ## 🗺️ High-Level Architecture
 
 ### 📜 Text Description
@@ -122,38 +137,43 @@ The chatbot engine acts as an orchestrator:
 ### 🎨 ASCII Diagram
 
 ```text
-┌─────────────────────┐
-│     User Input       │
-└─────────┬────────────┘
-          │
-┌─────────▼────────────┐
-│ Retrieve Session      │
-│   Conversation Memory │
-└─────────┬────────────┘
-          │
-┌─────────▼────────────┐
-│ Intent Classification │
-│   (LLM Prompt)        │
-└─────────┬────────────┘
-          │
-  ┌───────▼────────────┐
-  │ Intent Router       │
-  │ - Summarization     │
-  │ - Question Answering │
-  │ - Fallback           │
-  └───────┬────────────┘
-          │
-  ┌───────▼────────────┐
-  │ Selected Chain      │
-  │ (LangChain LLM)      │
-  └───────┬────────────┘
-          │
-┌─────────▼────────────┐
-│   Langfuse Tracing    │
-│   - Logs Input/Output │
-│   - Observability     │
-└─────────┬────────────┘
-          │
-┌─────────▼────────────┐
-│     Chatbot Reply     │
-└───────────────────────┘
+                                                                                                ┌──────────────────────┐
+                                                                                                │     User Input       │
+                                                                                                └─────────┬────────────┘
+                                                                                                          │
+                                                                                                ┌─────────▼────────────┐
+                                                                                                │ Retrieve Session     │
+                                                                                                │   Conversation Memory│
+                                                                                                └─────────┬────────────┘
+                                                                                                          │
+                                                                                                ┌─────────▼────────────┐
+                                                                                                │ Intent Classification│
+                                                                                                │   (LLM Prompt)       │
+                                                                                                └─────────┬────────────┘
+                                                                                                          │
+                                                                                                  ┌───────▼─────────────┐
+                                                                                                  │ Intent Router       │
+                                                                                                  │ - Summarization     │
+                                                                                                  │ - Question Answering│
+                                                                                                  │ - Fallback          │
+                                                                                                  └───────┬─────────────┘
+                                                                                                          │
+                                                                                                  ┌───────▼────────────┐
+                                                                                                  │ Selected Chain     │
+                                                                                                  │ (LangChain LLM)    │
+                                                                                                  └───────┬────────────┘
+                                                                                                          │
+                                                                                                ┌─────────▼────────────┐
+                                                                                                │   Langfuse Tracing   │
+                                                                                                │   - Logs Input/Output│
+                                                                                                │   - Observability    │
+                                                                                                └─────────┬────────────┘
+                                                                                                          │
+                                                                                                ┌─────────▼─────────────┐
+                                                                                                │     Chatbot Reply     │
+                                                                                                └───────────────────────┘
+
+---
+
+##✅ Conclusion:
+> By focusing on a leaner design, this project aligns its architecture with its actual scale and avoids unnecessary complexity.
