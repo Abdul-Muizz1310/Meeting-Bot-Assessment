@@ -1,44 +1,36 @@
-"""
-Meeting Bot Engine
+from langchain_community.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from chatbot.utils.vector_store import get_vectorstore_from_transcript
+from chatbot.utils.intent_router import get_router_chain
+from chatbot.utils.session_memory import get_memory_for_session
 
-This is where candidates implement their AI chatbot logic.
-The main function to implement is respond() which takes a user message,
-session data, and returns a response.
-
-Session data includes:
-- transcript: The uploaded meeting transcript
-- chat_history: List of previous messages in the conversation
-- session_id: Unique session identifier
-
-Example usage:
-    response = respond("What were the main topics discussed?", session_data)
-"""
+SUMMARIZATION_PROMPT_PATH = "chatbot/prompts/summarization.txt"
+FOLLOWUP_PROMPT_PATH = "chatbot/prompts/followup.txt"
 
 
-def respond(user_message, session_data):
-    """
-    Main chatbot response function - IMPLEMENT YOUR AI LOGIC HERE
-
-    Args:
-        user_message (str): The user's chat message
-        session_data (dict): Session data containing:
-            - transcript (str): The uploaded meeting transcript
-            - chat_history (list): List of previous messages
-            - session_id (str): Unique session identifier
-
-    Returns:
-        str: The chatbot's response
-    """
-
-    # Extract session data
+def respond(user_prompt, session_data):
     transcript = session_data.get("transcript", "")
-    chat_history = session_data.get("chat_history", [])
-    session_id = session_data.get("session_id", "")
+    user_id = session_data.get("user_id", "anonymous")
 
-    # PLACEHOLDER IMPLEMENTATION - REPLACE WITH YOUR AI LOGIC
+    llm = ChatOpenAI(temperature=0.3, model="gpt-4o-mini",openai_api_key="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")
+    memory = get_memory_for_session(user_id)
+    intent = get_router_chain(user_prompt)
 
-    if not transcript:
-        return "Please upload a meeting transcript first so I can help you analyze it."
 
-    # Simple keyword-based responses (replace with your AI implementation)
-    return f"Hello! I have access to your meeting transcript ({len(transcript)} characters). What would you like to know about the meeting?"
+    if intent == "summarize":
+        with open(SUMMARIZATION_PROMPT_PATH) as f:
+            template = PromptTemplate.from_template(f.read())
+        return LLMChain(llm=llm, prompt=template).run(transcript)
+
+    elif intent == "qa":
+        vectorstore = get_vectorstore_from_transcript(transcript)
+        retriever = vectorstore.as_retriever()
+        context = retriever.get_relevant_documents(user_prompt)
+        context_str = "\n\n".join([doc.page_content for doc in context])
+        with open(FOLLOWUP_PROMPT_PATH) as f:
+            template = PromptTemplate.from_template(f.read())
+        return LLMChain(llm=llm, prompt=template).run({"context": context_str, "question": user_prompt})
+
+    else:
+        return "I'm here to help with summaries and follow-ups. Please ask a relevant question."
