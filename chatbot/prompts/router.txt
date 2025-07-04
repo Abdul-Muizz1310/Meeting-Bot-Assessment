@@ -1,6 +1,0 @@
-You are an intent classifier. Classify the following user message into one of the following:
-- "summary_request"
-- "follow_up_question"
-- "unknown"
-
-Prompt: {input}

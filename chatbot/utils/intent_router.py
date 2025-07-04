@@ -1,22 +1,95 @@
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain_core.runnables import RunnableMap
+from langchain.chains.llm import LLMChain
 from langchain_community.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0,openai_api_key="-proj-zpClYfXcNMISkwndC5VCpVouycig2p28GUrms48exJLQ8QY12LhonSt7bgiOJ9ldMcfRk6ORk3T3BlbkFJlvEpD6nLAiUDYmaqv4giCTA2I4RL_ioASuGI4qu_XF-mYJ7W6-0bYqQyf0POdLYkjcFcjCmqIA")
 
-INTENT_PROMPT = PromptTemplate.from_template("""
-You are an intent classifier for a meeting assistant. Classify the user's message into one of the following intents:
+llm = ChatOpenAI(model="gpt-4o-mini",
+                 temperature=0.0,
+                 openai_api_key="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")
 
-- summarize: If the user asks to summarize a transcript or topic.
-- qa: If the user is asking a follow-up question based on a transcript.
-- fallback: If the user's request doesn't match either.
 
-Message: "{message}"
-Respond with only one word: summarize, qa, or fallback.
-""")
+# Intent classification
+intent_prompt = PromptTemplate(
+        input_variables=["input"],
+        template="""
+            You are an intent classifier. Analyze the user's message and determine its primary intent.
 
-intent_chain = LLMChain(llm=llm, prompt=INTENT_PROMPT)
+            Return exactly one of the following labels (as a lowercase string in quotes):
+            - "summarization": The user is asking to summarize text, condense content, or provide a shorter version of given information.
+            - "question_answering": The user is asking a question and expects a direct answer or explanation about something specific.
 
-def get_router_chain(message: str) -> str:
-    intent = intent_chain.run(message).strip().lower()
-    return intent if intent in ["summarize", "qa"] else "fallback"
+            Guidelines:
+            - Focus on the user's underlying intent.
+            - Be strict with definitions. Only choose "summarization" if they clearly want a summary, and "question_answering" if they ask a question expecting an answer.
+            - If the intent is ambiguous or does not match either category, choose "something_else".
+
+            Input: {input}
+
+            Intent:
+            """
+        )
+
+intent_chain = LLMChain(llm=llm, prompt=intent_prompt)
+
+
+def route_intent(message: str, transcript: str, memory: ConversationBufferMemory):
+    intent = intent_chain.invoke({"input": message.strip().lower()})
+
+    if "summarization" in intent:
+        summary_prompt = PromptTemplate(
+            input_variables=["context", "input"],
+            template="""
+                You are a meeting assistant. Your task is to read the meeting transcript and provide a clear, concise, and well-structured summary.
+
+                Guidelines:
+                - Focus on the key points, decisions, and action items discussed in the meeting.
+                - Exclude irrelevant small talk or off-topic content.
+                - Make the summary easy to read and professional in tone.
+                - Keep it brief but complete enough to capture the main ideas.
+
+                Transcript:
+                {context}
+
+                User Request:
+                {input}
+
+                Summary:
+                """
+            )
+
+        return LLMChain(llm=llm, prompt=summary_prompt, memory=memory)
+    else:
+        qa_prompt = PromptTemplate(
+            input_variables=["context", "input"],
+            template="""
+                You are a meeting assistant. Your task is to read the provided meeting transcript and generate a clear, concise, and professional summary.
+
+                Guidelines:
+                - Use only the information provided in the transcript. Do not make assumptions or add external knowledge.
+                - Focus on key points, decisions, and action items.
+                - Exclude small talk and off-topic content.
+                - Keep the summary brief but complete enough to capture the main ideas.
+                - If the user request asks for something that cannot be answered using only the transcript, reply with: "I don't have enough information in the transcript to answer that."
+
+                Transcript:
+                {context}
+
+                User Request:
+                {input}
+
+                Summary:
+                """
+            )
+
+        qa_chain = (
+            RunnableMap({
+                "context": lambda x: transcript,
+                "input": lambda x: x["input"],
+            }) |
+            qa_prompt |
+            llm
+        )
+
+        return qa_chain

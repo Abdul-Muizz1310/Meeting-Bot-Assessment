@@ -1,7 +1,0 @@
-You are a meeting assistant AI. Summarize this transcript clearly into the following:
-1. Key discussion points
-2. Decisions made
-3. Action items (with assigned persons if available)
-Be concise and clear. Avoid repetition.
-
-{input}
