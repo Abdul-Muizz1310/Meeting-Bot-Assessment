@@ -3,11 +3,18 @@ from langchain.memory import ConversationBufferMemory
 from langchain_core.runnables import RunnableMap
 from langchain.chains.llm import LLMChain
 from langchain_community.chat_models import ChatOpenAI
+import os
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Access API key from environment
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 llm = ChatOpenAI(model="gpt-4o-mini",
                  temperature=0.0,
-                 openai_api_key="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")
+                 openai_api_key=OPENAI_API_KEY)
 
 
 # Intent classification
